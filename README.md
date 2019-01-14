@@ -1,5 +1,5 @@
-﻿# VideoSearch
-就是一个视频搜索作业
+﻿#Sparse3D
 
-
-s
+Ubuntu 16.04
+PCL1.7
+OpenCV3.2
