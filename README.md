@@ -1,5 +1,5 @@
-﻿#Sparse3D
+﻿# Sparse3D
 
-Ubuntu 16.04
-PCL1.7
-OpenCV3.2
+Ubuntu 16.04  
+PCL1.7  
+OpenCV3.2  

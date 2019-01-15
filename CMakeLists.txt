@@ -17,6 +17,7 @@ set( LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib )
 # Find Packages
 # Find PCL
 find_package( PCL 1.7 REQUIRED )
+list(REMOVE_ITEM PCL_LIBRARIES "vtkproj4")
 # Find OpenCV
 find_package( OpenCV 3.1 REQUIRED )
 # Find Boost
@@ -25,12 +26,14 @@ find_package(Boost REQUIRED COMPONENTS
         filesystem   # 我的工程中只使用了 boost 的 filesystem 功能,因此这里只有一个组件
         )
 
+link_directories(${PCL_LIBRARY_DIRS})
+#set(PCL_INCLUDE_DIRS /usr/include/pcl-1.7)
 set( THIRD_PARTY_LIBS
-
         ${OpenCV_LIBS}
-        ${PCL_LIBRARY_DIRS}
+        ${PCL_LIBRARIES}
         ${Boost_LIBRARIES}
         )
+
 
 include_directories(
         ${OpenCV_INCLUDE_DIRS}
@@ -39,5 +42,6 @@ include_directories(
         ${Boost_INCLUDE_DIRS}
         ${PROJECT_SOURCE_DIR}/include
 )
+
 add_subdirectory( src )
 add_subdirectory( test )
