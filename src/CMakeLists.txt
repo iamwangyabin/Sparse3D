@@ -3,6 +3,9 @@ add_library( Sparse3D SHARED
 #        ShiTomasi.cpp
         Png2Cloud.cpp
         Narf.cpp
+        ColorCorrespondence.cpp
+        common_include.cpp
+        GraphMatching.cpp
         )
 
 target_link_libraries( Sparse3D

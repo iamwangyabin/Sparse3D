@@ -28,6 +28,8 @@
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/features/normal_3d_omp.h>
 
+#include "common_include.h"
+
 int ChangePng2Cloud(    std::string depth_dir ,
                         std::string color_dir ,
                         std::string camera_para ,
@@ -36,29 +38,6 @@ int ChangePng2Cloud(    std::string depth_dir ,
                         std::string xyzn_dir ,
                         std::string xyzn_ds_dir);
 
-struct CameraParam {
-public:
-    double fx_, fy_, cx_, cy_;
-    double k1_, k2_, k3_, p1_, p2_;
-    double depth_ratio_;
-    double downsample_leaf;
-
-    int img_width_;
-    int img_height_;
-
-    double integration_trunc_;
-
-    CameraParam() :
-            fx_(525.0f), fy_(525.0f), cx_(319.5f), cy_(239.5f),
-            k1_(0.0), k2_(0.0), k3_(0.0), p1_(0.0), p2_(0.0),
-            depth_ratio_(1000.0),
-            downsample_leaf(0.05),
-            img_width_(640), img_height_(480),
-            integration_trunc_(4.0)
-    {}
-
-    void LoadFromFile(std::string filename);
-};
 
 class Png2Cloud
 {

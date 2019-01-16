@@ -25,8 +25,11 @@ find_package(Boost REQUIRED COMPONENTS
         system
         filesystem   # 我的工程中只使用了 boost 的 filesystem 功能,因此这里只有一个组件
         )
+find_package(Armadillo REQUIRED)
 
 link_directories(${PCL_LIBRARY_DIRS})
+
+
 #set(PCL_INCLUDE_DIRS /usr/include/pcl-1.7)
 set( THIRD_PARTY_LIBS
         ${OpenCV_LIBS}
@@ -41,6 +44,7 @@ include_directories(
         "/usr/include/eigen3/"
         ${Boost_INCLUDE_DIRS}
         ${PROJECT_SOURCE_DIR}/include
+        ${ARMADILLO_INCLUDE_DIRS}
 )
 
 add_subdirectory( src )
