@@ -19,6 +19,7 @@ set( LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib )
 find_package( PCL 1.7 REQUIRED )
 list(REMOVE_ITEM PCL_LIBRARIES "vtkproj4")
 # Find OpenCV
+set(OpenCV_DIR /usr/local/share/OpenCV)
 find_package( OpenCV 3.1 REQUIRED )
 # Find Boost
 find_package(Boost REQUIRED COMPONENTS

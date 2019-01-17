@@ -1,20 +1,10 @@
 //
 // Created by wang on 19-1-14.
-//
+///usr/local/include/opencv2/imgproc.hpp
 
 // Registration from 2d color image by using ShiTomasi corner feature and SIFT descriptor
 //
-
-#include <opencv2/highgui/highgui.hpp>
-#include <opencv2/imgproc/imgproc.hpp>
-#include <opencv2/features2d/features2d.hpp>
-#include <opencv2/nonfree/features2d.hpp>
-#include <opencv2/nonfree/nonfree.hpp>
-
-#include <boost/filesystem.hpp>
-#include <iostream>
-#include <fstream>
-#include <set>
+#include "ShiTomasi.h"
 
 using namespace std;
 using namespace cv;
@@ -34,18 +24,20 @@ int main(int argc, char** argv)
     if (boost::filesystem::exists(color_correspondence_file))
         boost::filesystem::remove(color_correspondence_file);
 
-    int num_of_color = std::count_if(
-            boost::filesystem::directory_iterator(boost::filesystem::path(color_dir)),
-            boost::filesystem::directory_iterator(),
-            [](const boost::filesystem::directory_entry& e) {
-                return e.path().extension() == ".png";  });
+    int num_of_color = static_cast<int>(std::count_if(
+                boost::filesystem::directory_iterator(boost::filesystem::path(color_dir)),
+                boost::filesystem::directory_iterator(),
+                [](const boost::filesystem::directory_entry& e) {
+                    return e.path().extension() == ".png";  }));
 
     vector<vector<KeyPoint>> img_keypoints(num_of_color);		// keypoints array
     vector<Mat> img_descriptors(num_of_color);					// descriptors array
 
+//    Ptr<FeatureDetector> gftt = FeatureDetector::create( "GFTT" );
 
-    GoodFeaturesToTrackDetector gftt(100, 0.001, 40, 5);		// Shi-Tomasi Algorithm
-    SiftDescriptorExtractor descript;
+
+    cv::Ptr<cv::xfeatures2d::SiftFeatureDetector> descript = cv::xfeatures2d::SiftFeatureDetector::create();
+//    GFTTDetector gtff(100, 0.001, 40, 5);		// Shi-Tomasi Algorithm
 
 #pragma omp parallel for num_threads( 8 ) schedule( dynamic )
     for (int i = 0; i < num_of_color;++i)
@@ -54,13 +46,17 @@ int main(int argc, char** argv)
         ss1 << color_dir << "color" << i << ".png";
         Mat image1 = imread(ss1.str(), 0);
         vector<KeyPoint> keypoints1;
-        gftt.detect(image1, keypoints1);
+        goodFeaturesToTrack(image1,
+                            keypoints1,100,
+                            0.001,40);
+
+//        gftt->detect(image1, keypoints1);
 
         // save
         img_keypoints[i] = keypoints1;
 
         Mat description1;
-        descript.compute(image1, img_keypoints[i], description1);
+        descript->compute(image1, img_keypoints[i], description1);
         img_descriptors[i] = description1;
     }
 
