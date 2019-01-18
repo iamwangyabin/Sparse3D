@@ -46,18 +46,22 @@ int getNarf(std::string pointcloud_xyzn_dir, std::string keypoint_dir, std::stri
         }
 
         // keypoint
+        std::cout << "Detect pointcloud" << i << " keypoint\n";
+
         NARF narf(scene_xyz);
         narf.narf_keypoints_extraction();
-
+        std::cout<<narf.keypoints.size() <<std::endl;
         if (narf.keypoints.size() <= 0)
             continue;
 
+        std::cout<<i<<std::endl;
         pcl::PointCloud<pcl::PointXYZ>::Ptr pointcloud_keypoints(new pcl::PointCloud<pcl::PointXYZ>);
         pcl::copyPointCloud(narf.keypoints, *pointcloud_keypoints);
-        pointcloud_keypoints->width = static_cast<uint32_t>(pointcloud_keypoints->size());
+        pointcloud_keypoints->width = pointcloud_keypoints->size();
         pointcloud_keypoints->height = 1;
 
         // descriptor
+        std::cout << "Detect pointcloud" << i << " descriptor\n";
         pcl::PointCloud<pcl::FPFHSignature33>::Ptr descriptor(new pcl::PointCloud<pcl::FPFHSignature33>());
 
         pcl::FPFHEstimationOMP<pcl::PointXYZ, pcl::Normal, pcl::FPFHSignature33> fpfh;
@@ -70,7 +74,7 @@ int getNarf(std::string pointcloud_xyzn_dir, std::string keypoint_dir, std::stri
         if (pointcloud_keypoints->points.size() > 100){
             pointcloud_keypoints->points.resize(100);
             descriptor->points.resize(100);
-            pointcloud_keypoints->width = static_cast<uint32_t>(pointcloud_keypoints->points.size());
+            pointcloud_keypoints->width = pointcloud_keypoints->points.size();
         }
         std::stringstream kss;
         kss << keypoint_dir << "keypoints" << i << ".pcd";
@@ -123,6 +127,9 @@ void NARF::narf_keypoints_extraction(){
 
     keypoint_indices.clear();
     narf_keypoint_detector.compute(keypoint_indices);
+
+    std::cout << "Found " << keypoint_indices.points.size() << " key points.\n";
+
     keypoints.points.resize(keypoint_indices.points.size());
     for (size_t i = 0; i < keypoint_indices.points.size(); ++i)
         keypoints.points[i].getVector3fMap() = range_image.points[keypoint_indices.points[i]].getVector3fMap();

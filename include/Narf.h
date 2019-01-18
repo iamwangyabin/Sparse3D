@@ -35,4 +35,6 @@ public:
 
 };
 
+int getNarf(std::string pointcloud_xyzn_dir, std::string keypoint_dir, std::string descriptor_dir);
+
 #endif //SPARSE3D_NARF_H

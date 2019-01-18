@@ -9,18 +9,8 @@
 using namespace std;
 using namespace cv;
 
-int main(int argc, char** argv)
+int getShiTomasi(string color_dir, string color_correspondence_file)
 {
-    string color_dir, color_correspondence_file;
-    if (argc != 3)
-    {
-        cout << "Usage:Corner_feature.exe color_dir[input dir] color_correspondence_dir[output dir]\n";
-        return 0;
-    }
-
-    color_dir = argv[1];
-    color_correspondence_file = argv[2];
-
     if (boost::filesystem::exists(color_correspondence_file))
         boost::filesystem::remove(color_correspondence_file);
 
@@ -33,12 +23,16 @@ int main(int argc, char** argv)
     vector<vector<KeyPoint>> img_keypoints(num_of_color);		// keypoints array
     vector<Mat> img_descriptors(num_of_color);					// descriptors array
 
-//    Ptr<FeatureDetector> gftt = FeatureDetector::create( "GFTT" );
-
-
     cv::Ptr<cv::xfeatures2d::SiftFeatureDetector> descript = cv::xfeatures2d::SiftFeatureDetector::create();
-//    GFTTDetector gtff(100, 0.001, 40, 5);		// Shi-Tomasi Algorithm
 
+    int maxCorners=100;
+    double qualityLevel=0.001;
+    double minDistance=40;
+    int blockSize=5;
+    bool useHarrisDetector= false;
+    double k=0.04;
+    Ptr<GFTTDetector> gftt;
+    gftt = GFTTDetector::create(maxCorners, qualityLevel, minDistance, blockSize, useHarrisDetector);
 #pragma omp parallel for num_threads( 8 ) schedule( dynamic )
     for (int i = 0; i < num_of_color;++i)
     {
@@ -46,15 +40,9 @@ int main(int argc, char** argv)
         ss1 << color_dir << "color" << i << ".png";
         Mat image1 = imread(ss1.str(), 0);
         vector<KeyPoint> keypoints1;
-        goodFeaturesToTrack(image1,
-                            keypoints1,100,
-                            0.001,40);
-
-//        gftt->detect(image1, keypoints1);
-
+        gftt->detect(image1, keypoints1);
         // save
         img_keypoints[i] = keypoints1;
-
         Mat description1;
         descript->compute(image1, img_keypoints[i], description1);
         img_descriptors[i] = description1;

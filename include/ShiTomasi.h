@@ -21,7 +21,8 @@
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 
+using namespace std;
 
-
+int getShiTomasi(string color_dir, string color_correspondence_file);
 
 #endif //SPARSE3D_SHITOMASI_H
