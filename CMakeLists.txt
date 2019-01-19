@@ -16,7 +16,8 @@ set( LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib )
 
 # Find Packages
 # Find PCL
-find_package( PCL 1.7 REQUIRED )
+#set(PCL_DIR /usr/include/pcl-1.7)
+find_package( PCL 1.9 REQUIRED )
 list(REMOVE_ITEM PCL_LIBRARIES "vtkproj4")
 # Find OpenCV
 set(OpenCV_DIR /usr/local/share/OpenCV)
@@ -37,7 +38,7 @@ set( THIRD_PARTY_LIBS
         ${PCL_LIBRARIES}
         ${Boost_LIBRARIES}
         )
-
+add_definitions(${PCL_DEFINITIONS})
 
 include_directories(
         ${OpenCV_INCLUDE_DIRS}

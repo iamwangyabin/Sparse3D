@@ -44,19 +44,47 @@ GraphMatching::GraphMatching(
             if (fabs(dis_model2_x) < 0.01 && fabs(dis_model2_y) < 0.01 && fabs(dis_model2_z) < 0.01)
                 continue;
 
-            float dis_model1 = sqrt(dis_model1_x*dis_model1_x + dis_model1_y*dis_model1_y + dis_model1_z*dis_model1_z);
-            float dis_model2 = sqrt(dis_model2_x*dis_model2_x + dis_model2_y*dis_model2_y + dis_model2_z*dis_model2_z);
+            float dis_model1 = static_cast<float>(sqrt(dis_model1_x * dis_model1_x + dis_model1_y * dis_model1_y + dis_model1_z * dis_model1_z));
+            float dis_model2 = static_cast<float>(sqrt(dis_model2_x * dis_model2_x + dis_model2_y * dis_model2_y + dis_model2_z * dis_model2_z));
 
             if (fabs(dis_model1 - dis_model2) >= 3 * threshold)
                 continue;
 
             int row = index_ij1;
             int col = index_ij2;
-            float val = 4.5 - (dis_model1 - dis_model2)*(dis_model1 - dis_model2) / (2 * threshold*threshold);
+            float val = static_cast<float>(4.5 - (dis_model1 - dis_model2) * (dis_model1 - dis_model2) / (2 * threshold * threshold));
 
             _m(row, col) = val;
             _m(col, row) = val;
 
         }
     }
+}
+bool GraphMatching::judge_pointn_plane(std::vector<pcl::PointXYZ>& arr)
+{
+    Eigen::Vector3f v1, v2, v3;
+    v1 <<
+       arr[1].x - arr[0].x, arr[1].y - arr[0].y, arr[1].z - arr[0].z;
+    v2 <<
+       arr[2].x - arr[0].x, arr[2].y - arr[0].y, arr[2].z - arr[0].z;
+
+    Eigen::Vector3f n;
+    n = v1.cross(v2);
+    n.normalize();
+
+    for (int i = 3; i < arr.size(); ++i)
+    {
+        v3 <<
+           arr[i].x - arr[0].x, arr[i].y - arr[0].y, arr[i].z - arr[0].z;
+        float dis = v3.dot(n);
+        dis = fabs(dis);
+
+        float the_same_plane_threshold = 0.11f;
+
+        if (dis > the_same_plane_threshold)
+        {
+            return false;
+        }
+    }
+    return true;
 }

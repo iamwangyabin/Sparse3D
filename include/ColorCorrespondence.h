@@ -49,7 +49,9 @@ struct FramedTransformation {
 
 
 
-
+/**
+ * 轨迹
+ * */
 struct RGBDTrajectory {
     std::vector< FramedTransformation, Eigen::aligned_allocator<FramedTransformation>> data_;
 

@@ -96,7 +96,15 @@ int ColorCorrespondence(char** argv){
         }
         if (corps->size() < 4)
             continue;
-
+        /**
+         * 以上实际上生成了一组对应点，肯定有很多错配大的点，但是不重要，后面可以消除这些点影响。
+         * 4就是说要想求出单应矩阵起码需要4个点
+         * 以下要求出变换
+         * 就是论文里4.3的东西
+         * */
+        //Graph matching
+        GraphMatching gm(*pointcloud_keypoints1, *pointcloud_keypoints2, *corps);
+        pcl::CorrespondencesPtr	graph_corps = gm.ComputeCorrespondenceByEigenVec();
 
     }
 }

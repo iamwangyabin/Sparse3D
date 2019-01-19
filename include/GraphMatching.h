@@ -48,34 +48,7 @@ public:
 
 private:
     // judge n points in the same plane or not
-    bool judge_pointn_plane(std::vector<pcl::PointXYZ>& arr)
-    {
-        Eigen::Vector3f v1, v2, v3;
-        v1 <<
-           arr[1].x - arr[0].x, arr[1].y - arr[0].y, arr[1].z - arr[0].z;
-        v2 <<
-           arr[2].x - arr[0].x, arr[2].y - arr[0].y, arr[2].z - arr[0].z;
-
-        Eigen::Vector3f n;
-        n = v1.cross(v2);
-        n.normalize();
-
-        for (int i = 3; i < arr.size(); ++i)
-        {
-            v3 <<
-               arr[i].x - arr[0].x, arr[i].y - arr[0].y, arr[i].z - arr[0].z;
-            float dis = v3.dot(n);
-            dis = fabs(dis);
-
-            float the_same_plane_threshold = 0.11f;
-
-            if (dis > the_same_plane_threshold)
-            {
-                return false;
-            }
-        }
-        return true;
-    }
+    bool judge_pointn_plane(std::vector<pcl::PointXYZ>& arr);
 };
 
 
