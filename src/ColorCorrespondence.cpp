@@ -3,6 +3,8 @@
 //
 #include "common_include.h"
 #include "ColorCorrespondence.h"
+#include "GraphMatching.h"
+#include "BuildCorpPointSet.h"
 
 int ColorCorrespondence(char** argv){
     double score_max_depth;
@@ -106,7 +108,39 @@ int ColorCorrespondence(char** argv){
         GraphMatching gm(*pointcloud_keypoints1, *pointcloud_keypoints2, *corps);
         pcl::CorrespondencesPtr	graph_corps = gm.ComputeCorrespondenceByEigenVec();
 
+        if (graph_corps->size() < 4)
+            continue;
+        // 得到变换矩阵方法，先构造单位矩阵，再乘出来
+        Eigen::Matrix4f transformation_matrix = Eigen::Matrix4f::Identity();
+        transformation_matrix = transformation_matrix*gm._transformation;
+
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr scene1_ds = downsample_pc[img1];
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr scene2_ds = downsample_pc[img2];
+
+        BuildCorpPointSet buidCorp;
+        int K_set = static_cast<int>(buidCorp.ComputeCorrepondencePointSet(transformation_matrix, scene1_ds, scene2_ds, score_max_depth));
+        /**
+         * overlap ratio > 30% will be a potential alignment between Fi and Fj
+         * */
+        if (K_set < buidCorp._total_size / 3 || K_set == 0 || buidCorp._total_size == 0) {
+            continue;
+        }
+
+        Eigen::Matrix<double ,6,6> info_mat = buidCorp.ComputeInfoMatrix(buidCorp._correspondences,scene1_ds,scene2_ds);
+        double score = (double)K_set / (double)buidCorp._total_size;
+        InformationMatrix im = info_mat;
+        FramedInformation fi(img1, img2, im, score);
+        info.data_[img1*num_of_pc + img2] = fi;
+
+        Eigen::Matrix4d tf = transformation_matrix.cast<double>();
+        FramedTransformation ft(img1, img2, tf);
+        traj.data_[img1*num_of_pc + img2] = ft;
     }
+    //save
+    traj.SaveToSPFile(traj_file);
+    info.SaveToSPFile(info_file);
+
+    return 0;
 }
 
 

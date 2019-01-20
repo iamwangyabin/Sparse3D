@@ -6,6 +6,7 @@ add_library( Sparse3D SHARED
         ColorCorrespondence.cpp
         common_include.cpp
         GraphMatching.cpp
+        BuildCorpPointSet.cpp
         )
 
 target_link_libraries( Sparse3D

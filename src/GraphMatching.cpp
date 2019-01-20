@@ -254,3 +254,117 @@ pcl::CorrespondencesPtr GraphMatching::ComputeCorrespondenceByEigenVec(int best_
     return cor4;
 }
 
+
+Eigen::Matrix4f GraphMatching::ComputeRigid(pcl::CorrespondencesConstPtr correspondence, const pcl::PointCloud<pcl::PointXYZRGB>& keypoints1, const pcl::PointCloud<pcl::PointXYZRGB>& keypoints2) {
+    int point_num = correspondence->size();
+
+    //frame 1
+    std::vector<int> frame1_p_index;
+    frame1_p_index.resize(point_num);
+    for (int i = 0; i < point_num; ++i)
+        frame1_p_index[i] = correspondence->at(i).index_query;
+
+    std::vector<pcl::PointXYZRGB> frame1_pp;
+    frame1_pp.resize(point_num);
+    for (int i = 0; i < point_num; ++i)
+        frame1_pp[i] = keypoints1.at(frame1_p_index[i]);
+
+    std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f>> frame1_p;
+    frame1_p.resize(point_num);
+    for (int i = 0; i < point_num; ++i)
+        frame1_p[i] << frame1_pp[i].x, frame1_pp[i].y, frame1_pp[i].z;
+
+    Eigen::Vector3f frame1_p_center(0.0, 0.0, 0.0);
+    for (int i = 0; i < point_num; ++i) {
+        frame1_p_center(0) += frame1_p[i](0);
+        frame1_p_center(1) += frame1_p[i](1);
+        frame1_p_center(2) += frame1_p[i](2);
+    }
+    frame1_p_center = frame1_p_center / point_num;
+
+
+    //frame 2
+    std::vector<int> frame2_p_index;
+    frame2_p_index.resize(point_num);
+    for (int i = 0; i < point_num; ++i)
+        frame2_p_index[i] = correspondence->at(i).index_match;
+
+    std::vector<pcl::PointXYZRGB> frame2_pp;
+    frame2_pp.resize(point_num);
+    for (int i = 0; i < point_num; ++i)
+        frame2_pp[i] = keypoints2.at(frame2_p_index[i]);
+
+    std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f>> frame2_p;
+    frame2_p.resize(point_num);
+    for (int i = 0; i < point_num; ++i)
+        frame2_p[i] << frame2_pp[i].x, frame2_pp[i].y, frame2_pp[i].z;
+
+    Eigen::Vector3f frame2_p_center(0.0, 0.0, 0.0);
+    for (int i = 0; i < point_num; ++i) {
+        frame2_p_center(0) += frame2_p[i](0);
+        frame2_p_center(1) += frame2_p[i](1);
+        frame2_p_center(2) += frame2_p[i](2);
+    }
+    frame2_p_center = frame2_p_center / point_num;
+
+
+    //svd
+    Eigen::MatrixXf frame1_c_mat(3, point_num);
+    for (int col = 0; col < point_num; ++col)
+        for (int row = 0; row < 3; ++row)
+            frame1_c_mat(row, col) = frame1_p_center(row);
+
+    Eigen::MatrixXf mat1(3, point_num);
+    for (int col = 0; col < point_num; ++col)
+        for (int row = 0; row < 3; ++row)
+            mat1(row, col) = frame1_p[col](row);
+
+    mat1 = mat1 - frame1_c_mat;
+
+
+    Eigen::MatrixXf w(point_num, point_num);
+    for (int row = 0; row < point_num; ++row)
+        for (int col = 0; col < point_num; ++col)
+            if (row == col)
+                w(row, col) = 1.0;
+            else
+                w(row, col) = 0.0;
+
+
+    Eigen::MatrixXf frame2_c_mat(point_num, 3);
+    for (int row = 0; row < point_num; ++row)
+        for (int col = 0; col < 3; ++col)
+            frame2_c_mat(row, col) = frame2_p_center(col);
+
+    Eigen::MatrixXf mat2(point_num, 3);
+    for (int row = 0; row < point_num; ++row)
+        for (int col = 0; col < 3; ++col)
+            mat2(row, col) = frame2_p[row](col);
+
+    mat2 = mat2 - frame2_c_mat;
+
+    /**
+     * 点集之间的协方差矩阵H
+     * 然后分解可以得到旋转矩阵和平移矩阵
+     * */
+    Eigen::MatrixXf mat(3, 3);
+    mat = mat1 * w * mat2;
+    Eigen::JacobiSVD<Eigen::MatrixXf> svd(mat, Eigen::ComputeThinU | Eigen::ComputeThinV);
+
+    auto U = svd.matrixU();
+    auto V = svd.matrixV();
+    auto singular_value = svd.singularValues();
+
+    Eigen::Matrix3f r = V * U.transpose();
+    Eigen::Vector3f t = frame2_p_center - r * frame1_p_center;
+
+
+    Eigen::Matrix4f result;
+    result <<
+           r(0, 0), r(0, 1), r(0, 2), t(0),
+            r(1, 0), r(1, 1), r(1, 2), t(1),
+            r(2, 0), r(2, 1), r(2, 2), t(2),
+            0, 0, 0, 1;
+
+    return result;
+}
