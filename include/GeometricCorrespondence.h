@@ -21,4 +21,6 @@
 
 #include <boost/filesystem.hpp>
 
+#include "common_include.h"
+
 #endif //SPARSE3D_GEOMETRICCORRESPONDENCE_H
