@@ -19,5 +19,7 @@
 #add_executable( Pcl1 testPcl.cpp )
 #target_link_libraries( Pcl1 Sparse3D )
 #
-add_executable( Pcl narf_keypoint_extration.cpp )
-target_link_libraries( Pcl Sparse3D )
+#add_executable( Pcl narf_keypoint_extration.cpp )
+#target_link_libraries( Pcl Sparse3D )
+add_executable( ColorCor ColorCor.cpp)
+target_link_libraries( ColorCor Sparse3D )

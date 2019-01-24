@@ -4,6 +4,15 @@
 
 #ifndef SPARSE3D_COLORCORRESPONDENCE_H
 #define SPARSE3D_COLORCORRESPONDENCE_H
+#include "ColorGraphMatching.h"
+#include "BuildCorpPointSet.h"
+#include "common_include.h"
+
+#include <pcl/filters/voxel_grid.h>
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/opencv.hpp>
+#include <opencv2/imgproc.hpp>
 
 void ConvertRGBCloud2XYZCloud(pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr rgb, pcl::PointCloud<pcl::PointXYZ>::Ptr xyz);
 
@@ -33,6 +42,7 @@ struct CorrespondencePixel
 };
 
 
+int ColorCorrespondence(std::string pointcloud_dir, std::string pointcloud_ds_dir, std::string depth_dir, std::string correspendence_file, std::string camera_file,double score_max_depth, std::string traj_file, std::string info_file);
 
 
 #endif //SPARSE3D_COLORCORRESPONDENCE_H
