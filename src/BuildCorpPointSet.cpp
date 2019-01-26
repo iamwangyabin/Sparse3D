@@ -54,6 +54,27 @@ Eigen::Matrix< double, 6, 6 > BuildCorpPointSet::ComputeInfoMatrix(pcl::Correspo
     information_target.setZero();
 
     for (int i=0;i<cor.size();++i){
+        pcl::PointXYZRGB source_p = scene1->points[cor.at(i).index_query];
+        const float & sx = source_p.x;
+        const float & sy = source_p.y;
+        const float & sz = source_p.z;
+        Eigen::Matrix< double, 3, 6 > A;
+        A <<
+            1, 0, 0, 0, 2 * sz, -2 * sy,
+            0, 1, 0, -2 * sz, 0, 2 * sx,
+            0, 0, 1, 2 * sy, -2 * sx, 0;
+        information_source += A.transpose() * A;
 
+        pcl::PointXYZRGB target_p = scene2->points[cor.at(i).index_match];
+        const float & tx = target_p.x;
+        const float & ty = target_p.y;
+        const float & tz = target_p.z;
+        Eigen::Matrix< double, 3, 6 > AA;
+        AA <<
+            1, 0, 0, 0, 2 * tz, -2 * ty,
+            0, 1, 0, -2 * tz, 0, 2 * tx,
+            0, 0, 1, 2 * ty, -2 * tx, 0;
+        information_target += AA.transpose() * AA;
     }
+    return information_source;
 }
