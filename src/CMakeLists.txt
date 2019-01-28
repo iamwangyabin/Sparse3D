@@ -8,7 +8,8 @@ add_library( Sparse3D SHARED
         ColorGraphMatching.cpp
         BuildCorpPointSet.cpp
 #        GeometricCorrespondence.cpp
-#        ProgressiveOpt.cpp
+        ProgressiveOpt.cpp
+        GraphLoopDetect.cpp
         )
 
 target_link_libraries( Sparse3D

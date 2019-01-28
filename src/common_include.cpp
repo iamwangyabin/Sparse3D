@@ -234,3 +234,54 @@ void RGBDInformation::SaveToSPFile(std::string filename) {
     }
     fclose(f);
 }
+
+template<typename T>
+bool SeqSaveAndLoad::Load(std::string filename, std::vector<T>& seq)
+{
+    std::ifstream input(filename);
+    if (!input.good())
+        return false;
+    while (input.good()){
+        std::string str;
+        input >> str;
+        if (str != ""&&str != "\n")
+        {
+            std::stringstream ss(str);
+            T l;
+            ss >> l;
+            seq.push_back(l);
+        }
+    }
+
+    return true;
+}
+
+
+template<typename T>
+bool SeqSaveAndLoad::Save(std::string filename, std::vector<T>& seq)
+{
+    std::ofstream output(filename);
+    for (int i = 0; i < seq.size(); ++i)
+    {
+        if (i < seq.size() - 1)
+            output << seq[i] << "\n";
+        else
+            output << seq[i];
+    }
+
+    return true;
+}
+
+template<typename T>
+bool SeqSaveAndLoad::Save(std::string filename, std::vector<T>& seq, RGBDTrajectory& loop)
+{
+    std::ofstream output(filename);
+    for (int i = 0; i < seq.size(); ++i)
+    {
+        if (i < seq.size() - 1)
+            output << loop.data_[i].frame1_ << "---" << loop.data_[i].frame2_ << ":  " << seq[i] << "\n";
+        else
+            output << loop.data_[i].frame1_ << "---" << loop.data_[i].frame2_ << ":  " << seq[i];
+    }
+    return true;
+}
