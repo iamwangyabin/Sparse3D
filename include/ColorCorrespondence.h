@@ -4,6 +4,7 @@
 
 #ifndef SPARSE3D_COLORCORRESPONDENCE_H
 #define SPARSE3D_COLORCORRESPONDENCE_H
+
 #include "ColorGraphMatching.h"
 #include "BuildCorpPointSet.h"
 #include "common_include.h"

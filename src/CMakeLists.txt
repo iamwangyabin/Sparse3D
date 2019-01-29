@@ -3,10 +3,10 @@ add_library( Sparse3D SHARED
 #        ShiTomasi.cpp
 #        Png2Cloud.cpp
 #        Narf.cpp
-        ColorCorrespondence.cpp
+#        ColorCorrespondence.cpp
         common_include.cpp
-        ColorGraphMatching.cpp
-        BuildCorpPointSet.cpp
+#        ColorGraphMatching.cpp
+#        BuildCorpPointSet.cpp
 #        GeometricCorrespondence.cpp
         ProgressiveOpt.cpp
         GraphLoopDetect.cpp
