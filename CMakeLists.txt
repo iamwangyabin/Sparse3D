@@ -27,9 +27,12 @@ find_package(Boost REQUIRED COMPONENTS
         system
         filesystem   # 我的工程中只使用了 boost 的 filesystem 功能,因此这里只有一个组件
         )
+Find_Package(G2O REQUIRED)
+Find_Package(Cholmod REQUIRED)
 find_package(Armadillo REQUIRED)
 find_package(BLAS)
 find_package(LAPACK)
+find_package(CSparse)
 
 link_directories(${PCL_LIBRARY_DIRS})
 link_directories(${ARMADILLO_LIBRARIES})
@@ -37,6 +40,10 @@ link_directories(${ARMADILLO_LIBRARIES})
 link_directories(${BLAS_LIBRARIES})
 link_directories(${LAPACK_LIBRARIES})
 
+SET(G2O_LIBS g2o_cli g2o_ext_freeglut_minimal g2o_simulator g2o_solver_slam2d_linear
+        g2o_types_icp g2o_types_slam2d g2o_types_sba g2o_types_slam3d g2o_core g2o_interface
+        g2o_solver_csparse g2o_solver_structure_only g2o_csparse_extension g2o_opengl_helper g2o_solver_dense
+        g2o_stuff g2o_types_sclam2d g.2o_parser g2o_solver_pcg g2o_types_data g2o_types_sim3 cxsparse )
 
 #set(PCL_INCLUDE_DIRS /usr/include/pcl-1.7)
 set( THIRD_PARTY_LIBS
@@ -46,7 +53,7 @@ set( THIRD_PARTY_LIBS
         ${LAPACK_LIBRARIES}
         ${BLAS_LIBRARIES}
         ${ARMADILLO_LIBRARIES}
-#        ${ARMADILLO_LIBRARIES}
+        ${CSPARSE_LIBRARY}
         )
 add_definitions(${PCL_DEFINITIONS})
 
@@ -57,6 +64,7 @@ include_directories(
         ${Boost_INCLUDE_DIRS}
         ${PROJECT_SOURCE_DIR}/include
         ${ARMADILLO_INCLUDE_DIRS}
+        ${CSPARSE_INCLUDE_DIR}
 )
 
 add_subdirectory( src )
