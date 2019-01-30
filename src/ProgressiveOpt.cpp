@@ -288,7 +288,7 @@ void ProgressiveOpt::Opt() {
                         std::vector<int> loop;
                         while (temp_stack.top() != i) {
                             loop.push_back(temp_stack.top());
-                            temp_stack.pop();index_map
+                            temp_stack.pop();
                         }
                         loop.push_back(i);
                         loop.push_back(item);

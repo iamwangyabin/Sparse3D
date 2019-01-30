@@ -89,7 +89,8 @@ void ImageDescriptor::LoadFromFile(std::string filename) {
 /**
  * RGBDTrajectory::RGBDTrajectory::RGBDTrajectory::RGBDTrajectory::RGBDTrajectory::
  * */
-void RGBDTrajectory::LoadFromFile(std::string filename) {
+void RGBDTrajectory::
+LoadFromFile(std::string filename) {
     data_.clear();
     int frame1, frame2;
     Eigen::Matrix4d trans;

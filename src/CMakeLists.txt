@@ -8,12 +8,11 @@ add_library( Sparse3D SHARED
 #        ColorGraphMatching.cpp
 #        BuildCorpPointSet.cpp
 #        GeometricCorrespondence.cpp
-        ProgressiveOpt.cpp
-        GraphLoopDetect.cpp
+#        ProgressiveOpt.cpp
+#        GraphLoopDetect.cpp
+        OptApp.cpp
         )
 
 target_link_libraries( Sparse3D
         ${THIRD_PARTY_LIBS}
-
         )
-#add_executable( sift sift.cpp )
