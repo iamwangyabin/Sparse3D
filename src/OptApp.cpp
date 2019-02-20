@@ -49,32 +49,47 @@ bool OptApp::Init() {
 void OptApp::OptimizeSwitchable() {
 
 }
-using namespace g2o;
+
 void OptApp::OptimizeSlam3d() {
-//    g2o::SparseOptimizer* optimizer;
-//    optimizer = new g2o::SparseOptimizer();
-//    optimizer->setVerbose(true);
-//    std::unique_ptr<g2o::BlockSolverX::LinearSolverType> linearSolver(g2o::LinearSolverCSparse<g2o::BlockSolverX::PoseMatrixType>());
-//    g2o::BlockSolverX::LinearSolverType * linearSolver;
-//
-//    linearSolver = new g2o::LinearSolverDense<g2o::BlockSolverX::PoseMatrixType>();
-//    g2o::BlockSolverX * solver_ptr = new g2o::BlockSolverX(linearSolver);
-//    g2o::BlockSolverX* solver =new g2o::BlockSolverX(linearSolver);
-//    g2o::BlockSolverX* solver;
-//    solver_ptr=new BalBlockSolver(std::unique_ptr<BalBlockSolver::LinearSolverType>(linearSolver));
-//    solver = new g2o::BlockSolverX(std::unique_ptr<g2o::BlockSolverX::PoseMatrixType> (linearSolver));
-//    std::unique_ptr<Block::LinearSolverType> linearSolver ( new g2o::LinearSolverCSparse<Block::PoseMatrixType>());
-//
-//    //Block* solver_ptr = new Block ( linearSolver );
-//    //std::unique_ptr<Block> solver_ptr ( new Block ( linearSolver));
-//    std::unique_ptr<Block> solver_ptr ( new Block ( std::move(linearSolver)));
-//    g2o::LinearSolverType * linearSolver = g2o::LinearSolverCSparse<g2o::BlockSolverXPoseMatrixType> ();
+    g2o::SparseOptimizer* optimizer;
+    optimizer = new g2o::SparseOptimizer();
+    optimizer->setVerbose(false);
 
-//    BlockSolverX::LinearSolverType * linearSolver = new LinearSolverCSparse<g2o::BlockSolverX::PoseMatrixType>();
-//    BlockSolverX * solver_ptr = new BlockSolverX(linearSolver);
-    auto linearSolver = g2o::make_unique<LinearSolverCSparse<BlockSolverX::PoseMatrixType>>();
-
+    // create the linear solver
+    auto linearSolver = g2o::make_unique<g2o::LinearSolverCSparse<g2o::BlockSolverX::PoseMatrixType>>();
     // create the block solver on top of the linear solver
-    auto blockSolver = g2o::make_unique<BlockSolverX>(std::move(linearSolver));
+    auto solver = g2o::make_unique<g2o::BlockSolverX>(std::move(linearSolver));
+    // create the algorithm to carry out the optimization
+    g2o::OptimizationAlgorithmLevenberg* optimizationAlgorithm = new g2o::OptimizationAlgorithmLevenberg(std::move(solver));
+    optimizer->setAlgorithm(optimizationAlgorithm);
+    Eigen::Matrix< double, 6, 6 > default_information;
+    default_information = Eigen::Matrix< double, 6, 6 >::Identity();
+
+    // 添加顶点
+    for (int i = 0; i < frame_num_; i++) {
+        g2o::VertexSE3 * v = new g2o::VertexSE3();
+        v->setId(i);
+        // 预设值
+        v->setEstimate(Eigen2G2O(pose_traj_.data_[i].transformation_));
+        // 第一个点固定为零
+        if (i == 0) {
+            v->setFixed(true);
+        }
+        optimizer->addVertex(v);
+    }
+    // 添加边
+    std::vector<double> init_error_arr;
+    for (int i = 0; i < (int)loop_traj_.data_.size() ; ++i) {
+        FramedTransformation & t = loop_traj_.data_[i];
+
+        g2o::EdgeSE3* g2o_edge = new g2o::EdgeSE3();
+        // config edge vertice
+        g2o_edge->vertices()[0] = dynamic_cast<g2o::VertexSE3*>(optimizer->vertex(t.frame1_));
+        g2o_edge->vertices()[1] = dynamic_cast<g2o::VertexSE3*>(optimizer->vertex(t.frame2_));
+        g2o_edge->setMeasurement(g2o::internal::fromSE3Quat(Eigen2G2O(t.transformation_)));
+
+        auto f = g2o::
+    }
+
 }
 

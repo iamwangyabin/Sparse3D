@@ -4,13 +4,14 @@ add_library( Sparse3D SHARED
 #        Png2Cloud.cpp
 #        Narf.cpp
 #        ColorCorrespondence.cpp
-        common_include.cpp
+#        common_include.cpp
 #        ColorGraphMatching.cpp
-#        BuildCorpPointSet.cpp
-#        GeometricCorrespondence.cpp
+        BuildCorpPointSet.cpp
+        GeometricCorrespondence.cpp
+        GeoGraphMatching.cpp
 #        ProgressiveOpt.cpp
 #        GraphLoopDetect.cpp
-        OptApp.cpp
+#        OptApp.cpp
         )
 
 target_link_libraries( Sparse3D

@@ -21,6 +21,18 @@
 
 #include <boost/filesystem.hpp>
 
-#include "common_include.h"
+//#include "common_include.h"
+
+#include "GeoSubsidiary.h"
+
+int GeoCorrespondence(
+        std::string pointcloud_dir,
+        std::string pointcloud_ds_dir,
+        std::string keypoint_dir,
+        std::string descriptor_dir,
+        std::string camera_file,
+        std::string traj_file,
+        std::string info_file,
+        double score_max_depth);
 
 #endif //SPARSE3D_GEOMETRICCORRESPONDENCE_H
