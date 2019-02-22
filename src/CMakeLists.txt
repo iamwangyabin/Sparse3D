@@ -6,12 +6,16 @@ add_library( Sparse3D SHARED
 #        ColorCorrespondence.cpp
 #        common_include.cpp
 #        ColorGraphMatching.cpp
-        BuildCorpPointSet.cpp
-        GeometricCorrespondence.cpp
-        GeoGraphMatching.cpp
+#        BuildCorpPointSet.cpp
+#        GeometricCorrespondence.cpp
+#        GeoGraphMatching.cpp
+        ## opt1
 #        ProgressiveOpt.cpp
 #        GraphLoopDetect.cpp
+        ## opt2
 #        OptApp.cpp
+        ## join cloudpoints
+        jointPointCloud.cpp
         )
 
 target_link_libraries( Sparse3D

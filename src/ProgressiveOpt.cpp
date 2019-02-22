@@ -1,11 +1,11 @@
+#include <utility>
+
 //
 // Created by wang on 19-1-24.
 //
 
 #include "ProgressiveOpt.h"
 #include <utility>
-#include <ProgressiveOpt.h>
-
 
 bool ProgressiveOpt::Init() {
     namespace fs = boost::filesystem;
@@ -30,12 +30,6 @@ bool ProgressiveOpt::Init() {
     pose_visit.resize(frame_num_, false);
     return (traj_.data_.size() > 0);
 }
-
-
-
-
-
-
 
 
 /**
@@ -152,7 +146,7 @@ void ProgressiveOpt::LoopError(
         const std::vector<inx2seq> &one_loop = all_loop[i];
 
         RGBDTrajectory t_arr;
-        RGBDInformation2 i_arr;
+        RGBDInformation i_arr;
         Eigen::Matrix4d err = Eigen::Matrix4d::Identity();
         Eigen::Matrix4d final_mat = Eigen::Matrix4d::Identity();
         for (int k = 0; k < one_loop.size(); k++) {
@@ -161,9 +155,11 @@ void ProgressiveOpt::LoopError(
             FramedTransformation &t = traj_.data_[one_loop[k].index];
             t_arr.data_.push_back(t);
 
-            FrameInformation &inf = info_.data_[one_loop[k].index];
+            FramedInformation &inf = info_.data_[one_loop[k].index];
             i_arr.data_.push_back(inf);
         }
+
+        assert(t_arr.data_[0].frame1_ == t_arr.data_[1].frame1_);
 
         double rotation_deg = -9999.0;
         int low_score_edge = 0;
@@ -208,7 +204,7 @@ void ProgressiveOpt::LoopError(
                     rotation_deg = deg;
             }
         }
-        /***888888888888888888888888888888888888888888888*/
+
         err=err*final_mat.inverse();
         Eigen::Isometry3d delta(err);
         auto error = g2o::internal::toVectorMQT(delta);
@@ -421,5 +417,587 @@ void ProgressiveOpt::recur_seq(std::vector<int> frag_len, std::vector<int> &inx,
         }
     }
 
+}
+
+void ProgressiveOpt::ComputePose(const std::vector<int> &seq) {
+    g2o::SparseOptimizer optimizer;
+//    optimizer = new g2o::SparseOptimizer();
+//    optimizer->setVerbose(false);
+
+    // create the linear solver
+    auto linearSolver = g2o::make_unique<g2o::LinearSolverCSparse<g2o::BlockSolverX::PoseMatrixType>>();
+    linearSolver->setBlockOrdering(false);
+    // create the block solver on top of the linear solver
+    auto solver = g2o::make_unique<g2o::BlockSolverX>(std::move(linearSolver));
+    // create the algorithm to carry out the optimization
+    g2o::OptimizationAlgorithmLevenberg* optimizationAlgorithm = new g2o::OptimizationAlgorithmLevenberg(std::move(solver));
+    optimizer.setAlgorithm(optimizationAlgorithm);
+
+    Eigen::Matrix< double, 6, 6 > default_information;
+    default_information = Eigen::Matrix< double, 6, 6 >::Identity();
+
+    for (int i = 0; i < frame_num_; i++) {
+        auto v = new g2o::VertexSE3();
+        v->setId(i);
+        v->setEstimate(Eigen2G2O(pose_.data_[i].transformation_));
+        if (i == 0) {
+            v->setFixed(true);
+        }
+        optimizer.addVertex(v);
+    }
+    RGBDInformation selected_edge;
+    for (int i = 0; i < seq.size();++i)
+    {
+        if (seq[i]==1)
+        {
+            FramedTransformation & t = traj_.data_[i];
+            FramedInformation & inf = info_.data_[i];
+            selected_edge.data_.push_back(inf);
+
+            auto g2o_edge = new g2o::EdgeSE3();
+            g2o_edge->vertices()[0] = dynamic_cast<g2o::VertexSE3*>(optimizer.vertex(t.frame1_));
+            g2o_edge->vertices()[1] = dynamic_cast<g2o::VertexSE3*>(optimizer.vertex(t.frame2_));
+            g2o_edge->setMeasurement(g2o::internal::fromSE3Quat(Eigen2G2O(t.transformation_)));
+            if (info_.data_.size() > 0) {
+                g2o_edge->setInformation(info_.data_[i].information_);
+            }
+            else {
+                g2o_edge->setInformation(default_information);
+            }
+            optimizer.addEdge(g2o_edge);
+        }
+    }
+    optimizer.initializeOptimization();
+    optimizer.optimize(100);
+    for (int i = 0; i < pose_.data_.size(); i++) {
+        auto v = dynamic_cast<g2o::VertexSE3 *>(optimizer.vertex(i));
+        pose_.data_[i].transformation_ = G2O2Matrix4d(v->estimateAsSE3Quat());
+    }
+
+    selected_edge.SaveToFile(selected_edge_file_);
+}
+
+
+void ProgressiveOpt::ComputeInitPose(const std::vector<int> &seq) {
+    std::vector<int> init_seq(seq.size(), 0);
+    std::vector<bool> vertex_visit(frame_num_, false);
+
+    struct edge{
+        int val;
+        int id;
+        edge() :val(0), id(-1){}
+        edge(int v, int i) :val(v), id(i){}
+    };
+    std::vector<std::vector<edge>> graph(frame_num_, std::vector<edge>(frame_num_));
+    for (int i = 0; i < seq.size();++i)
+    {
+        if (seq[i]==1)
+        {
+            int v1 = traj_.data_[i].frame1_;
+            int v2 = traj_.data_[i].frame2_;
+            edge e(1, i);
+            graph[v1][v2] = e;
+            graph[v2][v1] = e;
+        }
+    }
+
+    //DFS
+    struct state{
+        bool in_stack;
+        int level;
+        int start_vertex;
+
+        Eigen::Matrix4d transformation_;
+        EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
+
+        state() :in_stack(false), level(-1), start_vertex(0), transformation_(Eigen::Matrix4d::Identity()){}
+        state(bool ins, int le, int start, Eigen::Matrix4d& t) :in_stack(ins), level(le), start_vertex(start),transformation_(t){}
+    };
+    std::vector<state, Eigen::aligned_allocator<state>> stack_vertex(frame_num_);
+    std::stack<int> DFS;
+    vertex_visit[0] = true;
+    DFS.push(0);
+    Eigen::Matrix4d ft = Eigen::Matrix4d::Identity();
+    stack_vertex[0] = state(true, 0, 0, ft);
+    while (!DFS.empty())
+    {
+        int item = DFS.top();
+        bool add_stack = false;
+        for (int i = stack_vertex[item].start_vertex; i < frame_num_; ++i)
+        {
+            if (graph[item][i].val == 1 && stack_vertex[i].in_stack == false)
+            {
+                DFS.push(i);
+
+                int inx = graph[item][i].id;
+
+                int last_level = stack_vertex[item].level;
+                Eigen::Matrix4d t = stack_vertex[item].transformation_*traj_.data_[inx].transformation_;
+                stack_vertex[i] = state(true, last_level + 1, 0, t);
+                add_stack = true;
+
+                stack_vertex[item].start_vertex = i + 1;
+
+                vertex_visit[i] = true;
+
+                init_seq[graph[item][i].id] = 1;
+                break;
+            }
+        }
+        if (!add_stack)
+        {
+            DFS.pop();
+        }
+    }
+
+    //helpSeq_.Save("C:/Users/range/Desktop/local2global_init_seq.txt", init_seq, traj_);
+    //ComputePose(init_seq);
+    for (int i = 0; i < stack_vertex.size();++i)
+        pose_.data_[i].transformation_ = stack_vertex[i].transformation_;
+}
+
+void ProgressiveOpt::UnionFindSet(std::vector<int> &seq) {
+    int vertex_num = frame_num_;
+    struct edge{
+        int id_;
+        int frame1_;
+        int frame2_;
+        Eigen::Matrix4d transformation_;
+
+        double score;
+        bool selected;
+
+        EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
+
+        edge(int frame1, int frame2, Eigen::Matrix4d t, double s)
+                : frame1_(frame1), frame2_(frame2), transformation_(std::move(t)), score(s), selected(false)
+        {}
+
+        edge() :id_(-1), frame1_(-1), frame2_(-1), transformation_(Eigen::Matrix4d::Identity()), score(-1.0), selected(false){}
+
+        edge(const edge& e){
+            id_ = e.id_;
+            frame1_ = e.frame1_;
+            frame2_ = e.frame2_;
+            transformation_ = e.transformation_;
+            score = e.score;
+            selected = e.selected;
+        }
+    };
+
+    struct cmp{
+        bool operator()(edge& e1, edge& e2){
+            return e1.score > e2.score;
+        }
+    };
+
+    std::vector<edge, Eigen::aligned_allocator<edge>> graph;
+    graph.resize(vertex_num*vertex_num);
+
+    for (int i = 0; i < traj_.data_.size(); ++i)
+    {
+        int id1 = traj_.data_[i].frame1_;
+        int id2 = traj_.data_[i].frame2_;
+
+        edge e(id1, id2, traj_.data_[i].transformation_, info_.data_[i].score_);
+        e.id_ = i;
+        if (info_.data_[i].flag == 0)
+            e.score *= 0.7;
+
+        if (graph[id1*vertex_num + id2].id_ == -1)
+        {
+            graph[id1*vertex_num + id2] = e;
+        }
+        else
+        {
+            if (e.score>graph[id1*vertex_num + id2].score)
+                graph[id1*vertex_num + id2] = e;
+        }
+    }
+
+
+    // init select
+    struct set_vertex
+    {
+        int set_id;
+        std::vector<int> vertex_id;
+    };
+    std::vector<set_vertex> gather;			//from set find vertex
+    gather.resize(vertex_num);
+    for (int i = 0; i < vertex_num; ++i)
+    {
+        gather[i].set_id = i;
+        gather[i].vertex_id.push_back(i);
+    }
+    std::vector<int> vertex2set;			//from vertex find set
+    vertex2set.resize(vertex_num);
+    for (int i = 0; i < vertex2set.size(); ++i)
+        vertex2set[i] = i;
+
+    for (int i = 0; i < seq.size();++i)
+    {
+        if (seq[i]==1)
+        {
+            int v1 = traj_.data_[i].frame1_;
+            int v2 = traj_.data_[i].frame2_;
+            //union
+            if (vertex2set[v1]<vertex2set[v2])			// v2's set => v1's set
+            {
+                for (int t = 0; t < gather[vertex2set[v2]].vertex_id.size(); ++t)
+                {
+                    gather[vertex2set[v1]].vertex_id.push_back(gather[vertex2set[v2]].vertex_id[t]);
+                }
+                for (int t = 0; t < gather[vertex2set[v2]].vertex_id.size(); ++t)
+                {
+                    vertex2set[gather[vertex2set[v2]].vertex_id[t]] = vertex2set[v1];
+                }
+            }
+            if (vertex2set[v1]>vertex2set[v2])
+            {											// v1's set => v2's set
+                for (int t = 0; t < gather[vertex2set[v1]].vertex_id.size(); ++t)
+                {
+                    gather[vertex2set[v2]].vertex_id.push_back(gather[vertex2set[v1]].vertex_id[t]);
+                }
+                for (int t = 0; t < gather[vertex2set[v1]].vertex_id.size(); ++t)
+                {
+                    vertex2set[gather[vertex2set[v1]].vertex_id[t]] = vertex2set[v2];
+                }
+            }
+            graph[v1*vertex_num + v2].selected = true;
+        }
+    }
+    for (int i = 0; i < vertex2set.size(); ++i)
+    {
+        std::cout << "vertex " << i << " belong set" << vertex2set[i] << "\n";
+    }
+
+    // select sequence edge
+
+    std::cout << "The first select consecutive image (score_threshold: >" << score_threshold1_ << ")\n";
+
+    for (int i = 1; i < vertex2set.size();++i)
+    {
+        if (vertex2set[i-1] !=vertex2set[i])
+        {
+            int v1 = i - 1;
+            int v2 = i;
+            if (graph[v1*vertex_num + v2].score>score_threshold1_)
+            {
+
+                std::cout << "\nChoose" << v1 << "----" << v2 << " to link all vertex\n";
+
+                int id = graph[v1*vertex_num + v2].id_;
+                seq[id] = 1;
+                //union
+                if (vertex2set[v1] < vertex2set[v2])		// v2's set => v1's set
+                {
+                    for (int i = 0; i < gather[vertex2set[v2]].vertex_id.size(); ++i)
+                    {
+                        gather[vertex2set[v1]].vertex_id.push_back(gather[vertex2set[v2]].vertex_id[i]);
+                    }
+                    for (int i = 0; i < gather[vertex2set[v2]].vertex_id.size(); ++i)
+                    {
+                        vertex2set[gather[vertex2set[v2]].vertex_id[i]] = vertex2set[v1];
+                    }
+                }
+                if (vertex2set[v1] > vertex2set[v2])
+                {											// v1's set => v2's set
+                    for (int i = 0; i < gather[vertex2set[v1]].vertex_id.size(); ++i)
+                    {
+                        gather[vertex2set[v2]].vertex_id.push_back(gather[vertex2set[v1]].vertex_id[i]);
+                    }
+                    for (int i = 0; i < gather[vertex2set[v1]].vertex_id.size(); ++i)
+                    {
+                        vertex2set[gather[vertex2set[v1]].vertex_id[i]] = vertex2set[v2];
+                    }
+                }
+                graph[v1*vertex_num + v2].selected = true;
+            }
+        }
+    }
+    std::sort(graph.begin(), graph.end(), cmp());
+    std::cout << "\n\n\nThe second select higher score matching (score_threshold: >" << score_threshold2_ << ")\n";
+    for (int index = 0; index < graph.size();++index)
+    {
+        // judge the same set or not
+        int v1 = graph[index].frame1_;
+        int v2 = graph[index].frame2_;
+        if (v1 == -1 || v2 == -1)
+            continue;
+        if (vertex2set[v1] == vertex2set[v2])
+            continue;
+        if (graph[index].score < score_threshold2_)
+            continue;
+
+        std::cout << "\nChoose" << v1 << "----" << v2 << " to link all vertex\n";
+
+        int id = graph[index].id_;
+        seq[id] = 1;
+
+        //union
+        if (vertex2set[v1] < vertex2set[v2])		// v2's set => v1's set
+        {
+            for (int i = 0; i < gather[vertex2set[v2]].vertex_id.size(); ++i)
+            {
+                gather[vertex2set[v1]].vertex_id.push_back(gather[vertex2set[v2]].vertex_id[i]);
+            }
+            for (int i = 0; i < gather[vertex2set[v2]].vertex_id.size(); ++i)
+            {
+                vertex2set[gather[vertex2set[v2]].vertex_id[i]] = vertex2set[v1];
+            }
+        }
+        if (vertex2set[v1] > vertex2set[v2])
+        {											// v1's set => v2's set
+            for (int i = 0; i < gather[vertex2set[v1]].vertex_id.size(); ++i)
+            {
+                gather[vertex2set[v2]].vertex_id.push_back(gather[vertex2set[v1]].vertex_id[i]);
+            }
+            for (int i = 0; i < gather[vertex2set[v1]].vertex_id.size(); ++i)
+            {
+                vertex2set[gather[vertex2set[v1]].vertex_id[i]] = vertex2set[v2];
+            }
+        }
+        graph[index].selected = true;
+    }
+
+    // cannot connect all vertex
+    if (!judgeLinkAllVertex(seq, traj_))
+    {
+        std::ofstream output(fail_file_);
+        for (int i = 0; i < vertex2set.size(); ++i)
+            output << "vertex " << i << " belong set" << vertex2set[i] << "\n";
+
+        output.close();
+        std::cout << "Graph cannot connect, see file " << fail_file_ << " \n";
+        exit(-1);
+    }
+
+
+}
+
+void ProgressiveOpt::UnionFindSetNonSequential(std::vector<int> &seq) {
+    int vertex_num = frame_num_;
+    struct edge{
+        int id_;
+        int frame1_;
+        int frame2_;
+        Eigen::Matrix4d transformation_;
+
+        double score;
+        bool selected;
+
+        EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
+
+        edge(int frame1, int frame2, Eigen::Matrix4d t, double s)
+                : frame1_(frame1), frame2_(frame2), transformation_(std::move(t)), score(s), selected(false)
+        {}
+
+        edge() :id_(-1), frame1_(-1), frame2_(-1), transformation_(Eigen::Matrix4d::Identity()), score(-1.0), selected(false){}
+
+        edge(const edge& e){
+            id_ = e.id_;
+            frame1_ = e.frame1_;
+            frame2_ = e.frame2_;
+            transformation_ = e.transformation_;
+            score = e.score;
+            selected = e.selected;
+        }
+    };
+
+    struct cmp{
+        bool operator()(edge& e1, edge& e2){
+            return e1.score > e2.score;
+        }
+    };
+
+    std::vector<edge, Eigen::aligned_allocator<edge>> graph;
+    graph.resize(vertex_num*vertex_num);
+
+    for (int i = 0; i < traj_.data_.size(); ++i)
+    {
+        int id1 = traj_.data_[i].frame1_;
+        int id2 = traj_.data_[i].frame2_;
+
+        edge e(id1, id2, traj_.data_[i].transformation_, info_.data_[i].score_);
+        e.id_ = i;
+        if (info_.data_[i].flag == 0)
+            e.score *= 0.7;
+
+        if (graph[id1*vertex_num + id2].id_ == -1)
+        {
+            graph[id1*vertex_num + id2] = e;
+        }
+        else
+        {
+            if (e.score>graph[id1*vertex_num + id2].score)
+                graph[id1*vertex_num + id2] = e;
+        }
+    }
+
+
+    // init select
+    struct set_vertex
+    {
+        int set_id;
+        std::vector<int> vertex_id;
+    };
+    std::vector<set_vertex> gather;			//from set find vertex
+    gather.resize(vertex_num);
+    for (int i = 0; i < vertex_num; ++i)
+    {
+        gather[i].set_id = i;
+        gather[i].vertex_id.push_back(i);
+    }
+    std::vector<int> vertex2set;			//from vertex find set
+    vertex2set.resize(vertex_num);
+    for (int i = 0; i < vertex2set.size(); ++i)
+        vertex2set[i] = i;
+
+    for (int i = 0; i < seq.size(); ++i)
+    {
+        if (seq[i] == 1)
+        {
+            int v1 = traj_.data_[i].frame1_;
+            int v2 = traj_.data_[i].frame2_;
+            //union
+            if (vertex2set[v1] < vertex2set[v2])			// v2's set => v1's set
+            {
+                for (int t = 0; t < gather[vertex2set[v2]].vertex_id.size(); ++t)
+                {
+                    gather[vertex2set[v1]].vertex_id.push_back(gather[vertex2set[v2]].vertex_id[t]);
+                }
+                for (int t = 0; t < gather[vertex2set[v2]].vertex_id.size(); ++t)
+                {
+                    vertex2set[gather[vertex2set[v2]].vertex_id[t]] = vertex2set[v1];
+                }
+            }
+            if (vertex2set[v1]>vertex2set[v2])
+            {											// v1's set => v2's set
+                for (int t = 0; t < gather[vertex2set[v1]].vertex_id.size(); ++t)
+                {
+                    gather[vertex2set[v2]].vertex_id.push_back(gather[vertex2set[v1]].vertex_id[t]);
+                }
+                for (int t = 0; t < gather[vertex2set[v1]].vertex_id.size(); ++t)
+                {
+                    vertex2set[gather[vertex2set[v1]].vertex_id[t]] = vertex2set[v2];
+                }
+            }
+            graph[v1*vertex_num + v2].selected = true;
+        }
+    }
+    for (int i = 0; i < vertex2set.size(); ++i)
+    {
+        std::cout << "vertex " << i << " belong set" << vertex2set[i] << "\n";
+    }
+
+    std::sort(graph.begin(), graph.end(), cmp());
+    std::cout << "\n\n\nThe second select higher score matching (score_threshold: >" << score_threshold2_ << ")\n";
+    for (int index = 0; index < graph.size(); ++index)
+    {
+        // judge the same set or not
+        int v1 = graph[index].frame1_;
+        int v2 = graph[index].frame2_;
+        if (v1 == -1 || v2 == -1)
+            continue;
+        if (vertex2set[v1] == vertex2set[v2])
+            continue;
+        if (graph[index].score < score_threshold2_)
+            continue;
+
+        std::cout << "\nChoose" << v1 << "----" << v2 << " to link all vertex\n";
+        int id = graph[index].id_;
+        seq[id] = 1;
+
+        //union
+        if (vertex2set[v1] < vertex2set[v2])		// v2's set => v1's set
+        {
+            for (int i = 0; i < gather[vertex2set[v2]].vertex_id.size(); ++i)
+            {
+                gather[vertex2set[v1]].vertex_id.push_back(gather[vertex2set[v2]].vertex_id[i]);
+            }
+            for (int i = 0; i < gather[vertex2set[v2]].vertex_id.size(); ++i)
+            {
+                vertex2set[gather[vertex2set[v2]].vertex_id[i]] = vertex2set[v1];
+            }
+        }
+        if (vertex2set[v1] > vertex2set[v2])
+        {											// v1's set => v2's set
+            for (int i = 0; i < gather[vertex2set[v1]].vertex_id.size(); ++i)
+            {
+                gather[vertex2set[v2]].vertex_id.push_back(gather[vertex2set[v1]].vertex_id[i]);
+            }
+            for (int i = 0; i < gather[vertex2set[v1]].vertex_id.size(); ++i)
+            {
+                vertex2set[gather[vertex2set[v1]].vertex_id[i]] = vertex2set[v2];
+            }
+        }
+        graph[index].selected = true;
+    }
+
+    // cannot connect all vertex
+    if (!judgeLinkAllVertex(seq, traj_))
+    {
+        std::ofstream output(fail_file_);
+        for (int i = 0; i < vertex2set.size(); ++i)
+            output << "vertex " << i << " belong set" << vertex2set[i] << "\n";
+
+        output.close();
+
+        std::cout << "Graph cannot connect, see file " << fail_file_ << " \n";
+        exit(-1);
+    }
+
+}
+
+bool ProgressiveOpt::judgeLinkAllVertex(std::vector<int> &seq, RGBDTrajectory &loop) {
+    std::vector<bool> visit_flag(frame_num_, false);
+    std::vector<std::vector<int>> graph(frame_num_, std::vector<int>(frame_num_, 0));
+    for (int i = 0; i < loop.data_.size();++i)
+    {
+        if (seq[i] == 1)
+        {
+            int id1 = loop.data_[i].frame1_;
+            int id2 = loop.data_[i].frame2_;
+
+            graph[id1][id2] = 1;
+            graph[id2][id1] = 1;
+        }
+    }
+    // BFS
+    int visit_num = 0;
+    std::queue<int> queue_;
+    int start_id = 0;
+    queue_.push(start_id);
+    visit_flag[start_id] = true;
+    visit_num++;
+    while (!queue_.empty())
+    {
+        int inx = queue_.front();
+        queue_.pop();
+
+        for (int i = 0; i < frame_num_; ++i)
+        {
+            if (graph[inx][i] == 1 && visit_flag[i] == false)
+            {
+                queue_.push(i);
+                visit_flag[i] = true;
+                visit_num++;
+            }
+        }
+    }
+
+    if (visit_num < frame_num_)
+    {
+        std::cout << "WARNING: Unconnected graph\n";
+        for (int i = 0; i < visit_flag.size(); ++i)
+            if (!visit_flag[i])
+                std::cout << "Vertex " << i << " unconnect\n";
+        return false;
+    }
+    else
+    {
+        std::cout << "Connected graph\n";
+        return true;
+    }
 }
 

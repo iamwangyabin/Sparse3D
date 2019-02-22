@@ -8,17 +8,17 @@
 #include <queue>
 #include <map>
 #include <vector>
-#include <g2o/types/slam3d/se3quat.h>
+#include <boost/filesystem.hpp>
 #include <g2o/types/slam3d/edge_se3.h>
 #include <g2o/types/slam3d/vertex_se3.h>
-#include <g2o/types/slam3d/isometry3d_gradients.h>
+//#include <g2o/types/slam3d/isometry3d_gradients.h>
 #include <g2o/core/block_solver.h>
 #include <g2o/solvers/csparse/linear_solver_csparse.h>
 #include <g2o/solvers/pcg/linear_solver_pcg.h>
 #include <g2o/core/optimization_algorithm_levenberg.h>
-#include <boost/filesystem.hpp>
+#include <g2o/solvers/eigen/linear_solver_eigen.h>
 
-#include "common_include.h"
+#include "helper.h"
 #include "GraphLoopDetect.h"
 
 /**
@@ -64,10 +64,11 @@ class ProgressiveOpt{
     SeqSaveAndLoad helpSeq_;
     std::vector<bool> pose_visit;
     std::vector<std::vector<key>> select_loop;
+
 public:
     GraphLoopDetect loopDetect_;
     RGBDTrajectory traj_;
-    RGBDInformation2 info_;
+    RGBDInformation info_;
     RGBDTrajectory pose_;
 
     // input

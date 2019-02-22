@@ -2,8 +2,7 @@
 // Created by wang on 19-1-28.
 //
 
-#include <common_include.h>
-#include <GraphLoopDetect.h>
+#include <helper.h>
 
 #include "GraphLoopDetect.h"
 
